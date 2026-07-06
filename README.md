@@ -30,20 +30,12 @@ The scanner reads each child repository's Git remote URL and HEAD revision.
 This works with `lazy.nvim`, Vim packages, `vim.pack`, or any plugin manager that
 keeps plugins as Git checkout directories.
 
-There is also a compatibility source for `lazy.nvim`:
-
-```sh
-go run ./cmd/nvim-plugin-triage scan \
-  --lock /path/to/nvim/lazy-lock.json \
-  --lazy-dir ~/.local/share/nvim/lazy
-```
-
 The internal model is plugin-manager independent. Additional inventory sources
 should implement `internal/inventory.Source` and return normalized plugin data.
 
 Planned sources:
 
-- `nvim-pack-lock.json`
+- `nvim-pack-lock.json`, if its schema remains self-contained enough to read
 - `vim.pack.get()` JSON dump
 - plain repository list
 
