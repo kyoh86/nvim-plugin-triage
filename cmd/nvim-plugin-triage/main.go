@@ -9,7 +9,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/kyoh86/nvim-plugin-triage/internal/dirscan"
 	"github.com/kyoh86/nvim-plugin-triage/internal/github"
+	"github.com/kyoh86/nvim-plugin-triage/internal/inventory"
 	"github.com/kyoh86/nvim-plugin-triage/internal/lazylock"
 	"github.com/kyoh86/nvim-plugin-triage/internal/plugin"
 	"github.com/kyoh86/nvim-plugin-triage/internal/report"
@@ -40,14 +42,19 @@ func run(ctx context.Context, args []string) error {
 func scan(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
-	lockPath := fs.String("lock", "lazy-lock.json", "path to lazy.nvim lazy-lock.json")
+	var dirs multiFlag
+	fs.Var(&dirs, "dir", "directory containing plugin repository checkouts; repeatable")
+	lockPath := fs.String("lock", "", "path to lazy.nvim lazy-lock.json")
 	lazyDir := fs.String("lazy-dir", lazylock.DefaultLazyDir(), "path to lazy.nvim plugin checkout directory")
 	format := fs.String("format", "json", "output format: json or markdown")
 	includeClean := fs.Bool("include-clean", false, "include plugins with no flags in markdown output")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	src := lazylock.Source{LockPath: *lockPath, LazyDir: *lazyDir}
+	src, err := sourceForScan(dirs, *lockPath, *lazyDir)
+	if err != nil {
+		return err
+	}
 	plugins, err := src.List(ctx)
 	if err != nil {
 		return err
@@ -95,8 +102,30 @@ func scan(ctx context.Context, args []string) error {
 	}
 }
 
+func sourceForScan(dirs []string, lockPath, lazyDir string) (inventory.Source, error) {
+	if len(dirs) > 0 {
+		return dirscan.Source{Dirs: dirs}, nil
+	}
+	if lockPath != "" {
+		return lazylock.Source{LockPath: lockPath, LazyDir: lazyDir}, nil
+	}
+	return nil, fmt.Errorf("scan requires --dir or --lock")
+}
+
+type multiFlag []string
+
+func (m *multiFlag) String() string {
+	return fmt.Sprint([]string(*m))
+}
+
+func (m *multiFlag) Set(value string) error {
+	*m = append(*m, value)
+	return nil
+}
+
 func usage() error {
 	fmt.Fprintln(os.Stderr, `Usage:
+  nvim-plugin-triage scan --dir ~/.local/share/nvim/lazy [--format json|markdown]
   nvim-plugin-triage scan --lock path/to/lazy-lock.json [--lazy-dir path] [--format json|markdown]
 
 Environment:

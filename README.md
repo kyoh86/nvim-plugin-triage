@@ -13,8 +13,7 @@ to make a final maintenance decision. The intended workflow is:
 
 ```sh
 go run ./cmd/nvim-plugin-triage scan \
-  --lock /path/to/nvim/lazy-lock.json \
-  --lazy-dir ~/.local/share/nvim/lazy \
+  --dir ~/.local/share/nvim/lazy \
   --format markdown
 ```
 
@@ -22,10 +21,22 @@ Set `GITHUB_TOKEN` to raise GitHub API rate limits.
 
 ## Current Input
 
-The first input implementation is intentionally `lazy.nvim`-specific:
+The primary input is a directory containing plugin repository checkouts:
 
-- `lazy-lock.json` provides plugin names and locked revisions
-- `--lazy-dir` plugin checkouts provide Git remote URLs
+- `--dir ~/.local/share/nvim/lazy`
+- repeat `--dir` to scan multiple roots
+
+The scanner reads each child repository's Git remote URL and HEAD revision.
+This works with `lazy.nvim`, Vim packages, `vim.pack`, or any plugin manager that
+keeps plugins as Git checkout directories.
+
+There is also a compatibility source for `lazy.nvim`:
+
+```sh
+go run ./cmd/nvim-plugin-triage scan \
+  --lock /path/to/nvim/lazy-lock.json \
+  --lazy-dir ~/.local/share/nvim/lazy
+```
 
 The internal model is plugin-manager independent. Additional inventory sources
 should implement `internal/inventory.Source` and return normalized plugin data.
@@ -35,7 +46,6 @@ Planned sources:
 - `nvim-pack-lock.json`
 - `vim.pack.get()` JSON dump
 - plain repository list
-- package directory scanner
 
 ## Flags
 
