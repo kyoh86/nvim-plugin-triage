@@ -1,0 +1,42 @@
+version: "2"
+run:
+  tests: false
+linters:
+  enable:
+    - bodyclose
+    - dogsled
+    - gocritic
+    - godox
+    - misspell
+    - nakedret
+    - staticcheck
+    - unconvert
+    - unparam
+    - whitespace
+  settings:
+    gocritic:
+      disabled-checks:
+        - elseif
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

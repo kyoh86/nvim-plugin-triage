@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+project_name: nvim-plugin-triage
+builds:
+  - id: default
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/nvim-plugin-triage
+    binary: nvim-plugin-triage
+    ldflags: -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+homebrew_casks:
+  - name: nvim-plugin-triage
+    binaries:
+      - nvim-plugin-triage
+    repository:
+      owner: kyoh86
+      name: homebrew-tap
+    directory: Casks
+    url:
+      verified: github.com/kyoh86/nvim-plugin-triage
+    homepage: https://github.com/kyoh86/nvim-plugin-triage
+    description: Static triage for Neovim plugin repositories
+    license: MIT
+nfpms:
+  - ids:
+      - default
+    maintainer: kyoh86 <me@kyoh86.dev>
+    homepage: https://github.com/kyoh86/nvim-plugin-triage
+    description: Static triage for Neovim plugin repositories
+    license: MIT
+    formats:
+      - apk
+      - deb
+      - rpm
+archives:
+  - id: gzip
+    formats: ['tar.gz']
+    format_overrides:
+      - goos: windows
+        formats: ['zip']
+    files:
+      - licence*
+      - LICENCE*
+      - license*
+      - LICENSE*
+      - readme*
+      - README*
+      - changelog*
+      - CHANGELOG*

@@ -16,6 +16,12 @@ import (
 	"github.com/kyoh86/nvim-plugin-triage/internal/rules"
 )
 
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 func main() {
 	if err := run(context.Background(), os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "nvim-plugin-triage:", err)
@@ -30,6 +36,9 @@ func run(ctx context.Context, args []string) error {
 	switch args[0] {
 	case "scan":
 		return scan(ctx, args[1:])
+	case "version":
+		fmt.Printf("nvim-plugin-triage %s (%s, %s)\n", version, commit, date)
+		return nil
 	case "help", "-h", "--help":
 		return usage()
 	default:
@@ -112,6 +121,7 @@ func (m *multiFlag) Set(value string) error {
 func usage() error {
 	fmt.Fprintln(os.Stderr, `Usage:
   nvim-plugin-triage scan --dir ~/.local/share/nvim/lazy [--format json|markdown]
+  nvim-plugin-triage version
 
 Environment:
   GITHUB_TOKEN  optional token for higher GitHub API rate limits`)
