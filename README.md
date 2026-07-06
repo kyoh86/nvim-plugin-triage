@@ -18,6 +18,8 @@ go run ./cmd/nvim-plugin-triage scan \
 ```
 
 Set `GITHUB_TOKEN` to raise GitHub API rate limits.
+Scan progress is written to stderr so JSON or Markdown output on stdout remains
+machine-readable. Use `--quiet` to suppress progress output.
 
 ## Current Input
 

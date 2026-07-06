@@ -3,6 +3,7 @@ package dirscan
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -11,12 +12,14 @@ import (
 )
 
 type Source struct {
-	Dirs []string
+	Dirs     []string
+	Progress io.Writer
 }
 
 func (s Source) List(ctx context.Context) ([]plugin.Plugin, error) {
 	var plugins []plugin.Plugin
 	for _, dir := range s.Dirs {
+		s.progressf("scan: reading directory %s\n", dir)
 		info, err := os.Stat(dir)
 		if err != nil {
 			return nil, err
@@ -34,6 +37,7 @@ func (s Source) List(ctx context.Context) ([]plugin.Plugin, error) {
 			if err != nil || !info.IsDir() {
 				continue
 			}
+			s.progressf("scan: inspecting %s\n", path)
 			remote, err := gitrepo.RemoteURL(ctx, path)
 			if err != nil {
 				continue
@@ -49,4 +53,11 @@ func (s Source) List(ctx context.Context) ([]plugin.Plugin, error) {
 		}
 	}
 	return plugins, nil
+}
+
+func (s Source) progressf(format string, args ...any) {
+	if s.Progress == nil {
+		return
+	}
+	fmt.Fprintf(s.Progress, format, args...)
 }
