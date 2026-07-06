@@ -39,22 +39,23 @@ func Evaluate(facts *plugin.Facts, cfg Config) []plugin.Flag {
 	if facts.PushedAt == nil {
 		flags = append(flags, flag("pushed_at_missing", "warn", "GitHub API did not provide pushed_at"))
 	} else if days := int(cfg.Now.Sub(*facts.PushedAt).Hours() / 24); days >= cfg.StalePushDays {
-		flags = append(flags, flag("pushed_at_older_than_threshold", "warn", fmt.Sprintf("last push was %d days ago", days)))
+		flags = append(flags, flag("pushed_at_older_than_threshold", "info", fmt.Sprintf("last push was %d days ago", days)))
+		if facts.OpenIssues >= cfg.OpenIssuesWarnAt || facts.OpenPRs >= cfg.OpenPRsWarnAt {
+			flags = append(flags, flag("inactive_with_backlog", "warn", fmt.Sprintf("last push was %d days ago with %d open issues and %d open pull requests", days, facts.OpenIssues, facts.OpenPRs)))
+		}
 	}
-	if facts.LatestReleaseAt == nil {
-		flags = append(flags, flag("no_latest_release", "info", "latest release was not found"))
-	} else if days := int(cfg.Now.Sub(*facts.LatestReleaseAt).Hours() / 24); days >= cfg.StaleReleaseDays {
-		flags = append(flags, flag("latest_release_older_than_threshold", "info", fmt.Sprintf("latest release was %d days ago", days)))
+	if facts.LatestReleaseAt != nil {
+		if days := int(cfg.Now.Sub(*facts.LatestReleaseAt).Hours() / 24); days >= cfg.StaleReleaseDays {
+			flags = append(flags, flag("latest_release_older_than_threshold", "info", fmt.Sprintf("latest release was %d days ago", days)))
+		}
 	}
 	if facts.OpenIssues >= cfg.OpenIssuesWarnAt {
-		flags = append(flags, flag("open_issues_over_threshold", "warn", fmt.Sprintf("%d open issues including PRs", facts.OpenIssues)))
+		flags = append(flags, flag("open_issues_over_threshold", "warn", fmt.Sprintf("%d open issues", facts.OpenIssues)))
 	}
 	if facts.OpenPRs >= cfg.OpenPRsWarnAt {
 		flags = append(flags, flag("open_prs_over_threshold", "warn", fmt.Sprintf("%d open pull requests", facts.OpenPRs)))
 	}
-	if len(facts.RecentCI) == 0 {
-		flags = append(flags, flag("ci_missing_or_unavailable", "info", "no recent GitHub Actions runs found"))
-	} else if !hasSuccessfulCI(facts.RecentCI) {
+	if len(facts.RecentCI) > 0 && !hasSuccessfulCI(facts.RecentCI) {
 		flags = append(flags, flag("ci_recent_runs_not_successful", "warn", "no success conclusion in recent GitHub Actions runs"))
 	}
 	return flags

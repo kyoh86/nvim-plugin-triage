@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/kyoh86/nvim-plugin-triage/internal/dirscan"
@@ -55,6 +56,7 @@ func scan(ctx context.Context, args []string) error {
 	format := fs.String("format", "json", "output format: json or markdown")
 	includeClean := fs.Bool("include-clean", false, "include plugins with no flags in markdown output")
 	quiet := fs.Bool("quiet", false, "suppress progress output")
+	concurrency := fs.Int("concurrency", 4, "number of concurrent GitHub fact requests")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -72,38 +74,12 @@ func scan(ctx context.Context, args []string) error {
 	}
 	progressf(progress, "scan: found %d plugin repositories\n", len(plugins))
 	sort.Slice(plugins, func(i, j int) bool { return plugins[i].Name < plugins[j].Name })
-	client := github.Client{}
 	now := time.Now()
-	rep := plugin.Report{GeneratedAt: now, Results: make([]plugin.Result, 0, len(plugins))}
-	for i, p := range plugins {
-		res := plugin.Result{Plugin: p}
-		if p.Repo == "" {
-			progressf(progress, "scan: skipping GitHub facts (%d/%d): %s has no GitHub remote\n", i+1, len(plugins), p.Name)
-			res.Error = fmt.Sprintf("github repo not found for %q", p.Name)
-			res.Flags = append(res.Flags, plugin.Flag{
-				ID:       "repo_url_missing",
-				Severity: "warn",
-				Evidence: "could not resolve GitHub repo from git remote",
-			})
-			rep.Results = append(rep.Results, res)
-			continue
-		}
-		progressf(progress, "scan: checking GitHub facts (%d/%d): %s\n", i+1, len(plugins), github.NormalizeRepo(p.Repo))
-		facts, err := client.Facts(ctx, github.NormalizeRepo(p.Repo))
-		if err != nil {
-			res.Error = err.Error()
-			res.Flags = append(res.Flags, plugin.Flag{
-				ID:       "github_facts_unavailable",
-				Severity: "warn",
-				Evidence: err.Error(),
-			})
-			rep.Results = append(rep.Results, res)
-			continue
-		}
-		res.Facts = facts
-		res.Flags = rules.Evaluate(facts, rules.DefaultConfig(now))
-		rep.Results = append(rep.Results, res)
+	rep := plugin.Report{
+		GeneratedAt: now,
+		Results:     collectResults(ctx, plugins, rules.DefaultConfig(now), max(*concurrency, 1), progress),
 	}
+	rep.Summary, rep.ReviewCandidates = report.Analyze(rep.Results)
 	switch *format {
 	case "json":
 		enc := json.NewEncoder(os.Stdout)
@@ -114,6 +90,56 @@ func scan(ctx context.Context, args []string) error {
 	default:
 		return fmt.Errorf("unknown format %q", *format)
 	}
+}
+
+func collectResults(ctx context.Context, plugins []plugin.Plugin, cfg rules.Config, concurrency int, progress io.Writer) []plugin.Result {
+	client := github.Client{}
+	results := make([]plugin.Result, len(plugins))
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	for range concurrency {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				results[i] = collectResult(ctx, client, plugins[i], i, len(plugins), cfg, progress)
+			}
+		}()
+	}
+	for i := range plugins {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+	return results
+}
+
+func collectResult(ctx context.Context, client github.Client, p plugin.Plugin, index, total int, cfg rules.Config, progress io.Writer) plugin.Result {
+	res := plugin.Result{Plugin: p}
+	if p.Repo == "" {
+		progressf(progress, "scan: skipping GitHub facts (%d/%d): %s has no GitHub remote\n", index+1, total, p.Name)
+		res.Error = fmt.Sprintf("github repo not found for %q", p.Name)
+		res.Flags = append(res.Flags, plugin.Flag{
+			ID:       "repo_url_missing",
+			Severity: "warn",
+			Evidence: "could not resolve GitHub repo from git remote",
+		})
+		return res
+	}
+	progressf(progress, "scan: checking GitHub facts (%d/%d): %s\n", index+1, total, github.NormalizeRepo(p.Repo))
+	facts, err := client.Facts(ctx, github.NormalizeRepo(p.Repo))
+	if err != nil {
+		res.Error = err.Error()
+		res.Flags = append(res.Flags, plugin.Flag{
+			ID:       "github_facts_unavailable",
+			Severity: "warn",
+			Evidence: err.Error(),
+		})
+		return res
+	}
+	res.Facts = facts
+	res.Flags = rules.Evaluate(facts, cfg)
+	return res
 }
 
 func progressf(w io.Writer, format string, args ...any) {
@@ -136,7 +162,7 @@ func (m *multiFlag) Set(value string) error {
 
 func usage() error {
 	fmt.Fprintln(os.Stderr, `Usage:
-  nvim-plugin-triage scan --dir ~/.local/share/nvim/lazy [--format json|markdown] [--include-clean] [--quiet]
+  nvim-plugin-triage scan --dir ~/.local/share/nvim/lazy [--format json|markdown] [--include-clean] [--quiet] [--concurrency 4]
   nvim-plugin-triage version
 
 Environment:

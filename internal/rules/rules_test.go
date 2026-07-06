@@ -22,6 +22,7 @@ func TestEvaluateFlagsStaleRepo(t *testing.T) {
 	}, DefaultConfig(now))
 	want := map[string]bool{
 		"pushed_at_older_than_threshold":      true,
+		"inactive_with_backlog":               true,
 		"latest_release_older_than_threshold": true,
 		"open_issues_over_threshold":          true,
 		"open_prs_over_threshold":             true,
@@ -32,6 +33,17 @@ func TestEvaluateFlagsStaleRepo(t *testing.T) {
 	}
 	for id := range want {
 		t.Fatalf("missing flag %q in %#v", id, flags)
+	}
+}
+
+func TestEvaluateDoesNotFlagMissingReleaseOrCI(t *testing.T) {
+	now := time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC)
+	pushedAt := now
+	flags := Evaluate(&plugin.Facts{
+		PushedAt: &pushedAt,
+	}, DefaultConfig(now))
+	if len(flags) != 0 {
+		t.Fatalf("unexpected flags: %#v", flags)
 	}
 }
 

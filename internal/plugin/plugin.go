@@ -18,6 +18,7 @@ type Facts struct {
 	Archived        bool       `json:"archived"`
 	Disabled        bool       `json:"disabled"`
 	OpenIssues      int        `json:"open_issues"`
+	OpenIssuesTotal int        `json:"open_issues_including_prs"`
 	OpenPRs         int        `json:"open_prs"`
 	RecentCI        []CIrun    `json:"recent_ci,omitempty"`
 }
@@ -43,6 +44,24 @@ type Result struct {
 }
 
 type Report struct {
-	GeneratedAt time.Time `json:"generated_at"`
-	Results     []Result  `json:"results"`
+	GeneratedAt      time.Time         `json:"generated_at"`
+	Summary          Summary           `json:"summary"`
+	ReviewCandidates []ReviewCandidate `json:"review_candidates"`
+	Results          []Result          `json:"results"`
+}
+
+type Summary struct {
+	Total            int `json:"total"`
+	Critical         int `json:"critical"`
+	Warn             int `json:"warn"`
+	ReviewCandidates int `json:"review_candidates"`
+	ContextOnly      int `json:"context_only"`
+	Clean            int `json:"clean"`
+}
+
+type ReviewCandidate struct {
+	Name     string   `json:"name"`
+	Repo     string   `json:"repo,omitempty"`
+	Severity string   `json:"severity"`
+	Flags    []string `json:"flags"`
 }

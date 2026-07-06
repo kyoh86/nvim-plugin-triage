@@ -24,9 +24,9 @@ func (c Client) Facts(ctx context.Context, repo string) (*plugin.Facts, error) {
 		return nil, err
 	}
 	facts := &plugin.Facts{
-		Archived:   r.Archived,
-		Disabled:   r.Disabled,
-		OpenIssues: r.OpenIssuesCount,
+		Archived:        r.Archived,
+		Disabled:        r.Disabled,
+		OpenIssuesTotal: r.OpenIssuesCount,
 	}
 	if r.PushedAt != "" {
 		if t, err := time.Parse(time.RFC3339, r.PushedAt); err == nil {
@@ -37,6 +37,7 @@ func (c Client) Facts(ctx context.Context, repo string) (*plugin.Facts, error) {
 		facts.LatestReleaseAt = rel
 	}
 	facts.OpenPRs = c.openPRCount(ctx, repo)
+	facts.OpenIssues = max(r.OpenIssuesCount-facts.OpenPRs, 0)
 	facts.RecentCI = c.recentCI(ctx, repo)
 	return facts, nil
 }
