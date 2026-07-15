@@ -27,6 +27,12 @@ jobs:
       - name: Check Branch
         if: github.ref != 'refs/heads/main'
         run: exit 1
+      - name: Validate git tag
+        if: ${{ !inputs.skip-validate }}
+        uses: kyoh86/git-vertag-action@v1.1.4
+        with:
+          method: validate
+          tag: ${{ inputs.next-version }}
       - name: Wait commit status
         uses: cloudposse/github-action-wait-commit-status@main
         with:
@@ -38,12 +44,6 @@ jobs:
           check-retry-interval: 20
       - name: Checkout Sources
         uses: actions/checkout@v7
-      - name: Validate git tag
-        if: ${{ !inputs.skip-validate }}
-        uses: kyoh86/git-vertag-action@v1.1.4
-        with:
-          method: validate
-          tag: ${{ inputs.next-version }}
       - name: Set git tag
         run: |
           git config user.name "github-actions[bot]"
